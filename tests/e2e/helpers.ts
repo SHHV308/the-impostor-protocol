@@ -17,6 +17,8 @@ export const me = async (p: Page) => {
 export async function openPlayer(browser: Browser, name: string, opts: Parameters<Browser['newContext']>[0] = {}): Promise<Player> {
   const ctx = await browser.newContext(opts);
   const page = await ctx.newPage();
+  // GitHub Codespaces shows a one-time interstitial on forwarded ports; click through like a player would
+  await page.addLocatorHandler(page.getByRole('button', { name: 'Continue', exact: true }), (b) => b.click());
   return { name, ctx, page };
 }
 

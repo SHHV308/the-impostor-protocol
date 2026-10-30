@@ -4,7 +4,9 @@ A real-time multiplayer social deduction game for 4–10 players, playable in an
 
 No accounts: players get a guest profile (XP, stats, achievements) automatically.
 
-**Live deployment:** _not deployed yet._ This section is updated with the verified public URL once a deployment has been accessed and tested (see [Deployment](#deployment)).
+**Live demo (GitHub Codespaces):** https://hidden-apparition-4qvqgxp64x76f5rgg-3000.app.github.dev
+
+This is a temporary demo, not a permanent host: it runs only while the owner's codespace is running (it stops after about an hour of inactivity), progress is held in memory and resets on restart, and GitHub shows a one-time "development port" warning on first visit; click **Continue**. Verified with four separate browsers (lobby, match start, private roles, synced movement). For a permanent deployment with PostgreSQL see [Deployment](#deployment).
 
 ## Screenshots
 

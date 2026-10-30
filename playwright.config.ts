@@ -9,8 +9,8 @@ export default defineConfig({
   fullyParallel: false,
   workers: 1,
   reporter: [['list']],
-  use: { baseURL: `http://127.0.0.1:${PORT}`, trace: 'retain-on-failure' },
-  webServer: {
+  use: { baseURL: process.env.E2E_BASE_URL ?? `http://127.0.0.1:${PORT}`, trace: process.env.E2E_BASE_URL ? 'off' : 'retain-on-failure' },
+  webServer: process.env.E2E_BASE_URL ? undefined : {
     // run `npm run build` first; the server serves dist/client and uses shortened meeting timers
     command: 'node dist/server/index.mjs',
     url: `http://127.0.0.1:${PORT}/api/health`,
