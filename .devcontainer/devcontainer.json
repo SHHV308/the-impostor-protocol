@@ -1,0 +1,8 @@
+{
+  "name": "The Impostor Protocol",
+  "image": "mcr.microsoft.com/devcontainers/javascript-node:22",
+  "postCreateCommand": "npm ci && npm run build",
+  "postStartCommand": "nohup sh -c 'PORT=3000 node dist/server/index.mjs' > /tmp/server.log 2>&1 &",
+  "forwardPorts": [3000],
+  "portsAttributes": { "3000": { "label": "The Impostor Protocol", "onAutoForward": "notify" } }
+}
