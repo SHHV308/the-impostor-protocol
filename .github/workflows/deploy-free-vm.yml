@@ -82,10 +82,13 @@ jobs:
           printf 'POSTGRES_PASSWORD=%s\nAPP_HOSTNAME=%s\nIMAGE_TAG=%s\n' \
             "$POSTGRES_PASSWORD" "$APP_HOSTNAME" "$GITHUB_SHA" > /tmp/impostor.env
           docker save "impostor:${GITHUB_SHA}" --output /tmp/impostor.tar
+          ssh -i "$HOME/.ssh/id_ed25519" \
+            -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes -o UserKnownHostsFile="$HOME/.ssh/known_hosts" \
+            "$ORACLE_USER@$ORACLE_HOST" 'mkdir -m 700 -p "$HOME/impostor-deploy"'
           scp -i "$HOME/.ssh/id_ed25519" \
             -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes -o UserKnownHostsFile="$HOME/.ssh/known_hosts" \
             /tmp/impostor.tar deploy/compose.yaml deploy/Caddyfile /tmp/impostor.env \
-            "$ORACLE_USER@$ORACLE_HOST:/tmp/"
+            "$ORACLE_USER@$ORACLE_HOST:impostor-deploy/"
 
       - name: Deploy and verify
         shell: bash
@@ -101,14 +104,15 @@ jobs:
             -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes -o UserKnownHostsFile="$HOME/.ssh/known_hosts" \
             "$ORACLE_USER@$ORACLE_HOST" 'bash -s' <<'REMOTE'
           set -euo pipefail
+          staging="$HOME/impostor-deploy"
+          trap 'rm -f "$staging"/impostor.env "$staging"/compose.yaml "$staging"/Caddyfile "$staging"/impostor.tar' EXIT
           sudo install -d -m 755 /opt/impostor
-          sudo install -m 600 /tmp/impostor.env /opt/impostor/.env
-          sudo install -m 644 /tmp/compose.yaml /opt/impostor/compose.yaml
-          sudo install -m 644 /tmp/Caddyfile /opt/impostor/Caddyfile
-          sudo docker load --input /tmp/impostor.tar
+          sudo install -m 600 "$staging/impostor.env" /opt/impostor/.env
+          sudo install -m 644 "$staging/compose.yaml" /opt/impostor/compose.yaml
+          sudo install -m 644 "$staging/Caddyfile" /opt/impostor/Caddyfile
+          sudo docker load --input "$staging/impostor.tar"
           sudo docker compose --env-file /opt/impostor/.env -f /opt/impostor/compose.yaml up -d --wait --wait-timeout 180
           sudo docker image prune -f
-          rm -f /tmp/impostor.env /tmp/compose.yaml /tmp/Caddyfile /tmp/impostor.tar
           REMOTE
           curl --fail --silent --show-error --retry 12 --retry-delay 10 --retry-connrefused \
             "https://${APP_HOSTNAME}/api/health"

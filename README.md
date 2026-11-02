@@ -126,12 +126,13 @@ The Oracle Always Free allowance currently covers up to 2 Ampere A1 OCPUs and 12
 
 ### One-time setup
 
-1. Create an Oracle Cloud Free Tier account and an Ubuntu 24.04 ARM VM in your home region. Select up to 2 OCPUs and 12 GB RAM, assign a public IPv4 address, and add an SSH public key. If A1 capacity is unavailable, try another availability domain or wait.
-2. In the VM's VCN security list or network security group, allow inbound TCP ports **22**, **80**, **443** and UDP port **443**. Keep SSH access restricted to your IP if practical.
-3. During VM creation, paste [`deploy/oracle-cloud-init.yaml`](deploy/oracle-cloud-init.yaml) into the cloud-init/user-data field. It installs Docker and the Compose plugin.
-4. Choose a hostname that resolves to the VM's public IP. For a no-cost hostname, `PUBLIC_IP.nip.io` works with Caddy's automatic HTTPS; replace `PUBLIC_IP` with the VM address.
-5. Create a dedicated SSH key pair for GitHub Actions, add its public key to the VM, and keep its private key for the repository secret. Verify the VM's SSH host-key fingerprint before saving its `ssh-keyscan -H PUBLIC_IP` output.
-6. In GitHub repository **Settings → Secrets and variables → Actions**, add these repository secrets:
+1. Create a dedicated SSH key pair for GitHub Actions (leave its passphrase empty so automation can use it). Keep the private key for a repository secret; the public key will be added to the VM.
+2. Create an Oracle Cloud Free Tier account and an Ubuntu 24.04 ARM VM in your home region. Select up to 2 OCPUs and 12 GB RAM, assign a public IPv4 address, and add the public key from step 1. If A1 capacity is unavailable, try another availability domain or wait.
+3. In the VM's VCN security list or network security group, allow inbound TCP ports **22**, **80**, **443** and UDP port **443**. Keep SSH access restricted to your IP if practical.
+4. During VM creation, paste [`deploy/oracle-cloud-init.yaml`](deploy/oracle-cloud-init.yaml) into the cloud-init/user-data field. It installs Docker and the Compose plugin.
+5. Choose a hostname that resolves to the VM's public IP. For a no-cost hostname, `PUBLIC_IP.nip.io` works with Caddy's automatic HTTPS; replace `PUBLIC_IP` with the VM address.
+6. Verify the VM's SSH host-key fingerprint, then save the verified `ssh-keyscan -H PUBLIC_IP` output for the Actions secret.
+7. In GitHub repository **Settings → Secrets and variables → Actions**, add these repository secrets:
 
    | Name | Value |
    | --- | --- |
@@ -141,8 +142,8 @@ The Oracle Always Free allowance currently covers up to 2 Ampere A1 OCPUs and 12
    | `ORACLE_SSH_KNOWN_HOSTS` | Verified `ssh-keyscan -H PUBLIC_IP` output |
    | `POSTGRES_PASSWORD` | 64 hexadecimal characters; generate with `node -e "console.log(require('node:crypto').randomBytes(32).toString('hex'))"` |
 
-   Add the repository **variable** `APP_HOSTNAME` with the hostname from step 4, for example `203.0.113.10.nip.io`.
-7. In **Actions → Deploy free VM → Run workflow**, run the deployment. Later pushes to `main` deploy automatically. The workflow builds for ARM64, copies the image over SSH, waits for the app and proxy health checks, and probes `https://APP_HOSTNAME/api/health`.
+   Add the repository **variable** `APP_HOSTNAME` with the hostname from step 5, for example `203.0.113.10.nip.io`.
+8. In **Actions → Deploy free VM → Run workflow**, run the deployment. Later pushes to `main` deploy automatically. The workflow builds for ARM64, copies the image over SSH, waits for the app and proxy health checks, and probes `https://APP_HOSTNAME/api/health`.
 
 The database is on the VM's persistent block volume and survives container/server restarts, but this setup does not configure off-site backups. Back up the PostgreSQL volume or database regularly. A VM replacement without restoring the volume loses guest profiles and progression.
 
