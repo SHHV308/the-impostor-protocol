@@ -120,20 +120,37 @@ What the suites cover: role assignment for 4–10 players (impostor counts, uniq
 
 ## Deployment
 
-`render.yaml` is a Render Blueprint: one Node web service (serves the built client and Socket.IO, WebSockets and HTTPS are built in) plus a managed PostgreSQL database.
+GitHub hosts the source and GitHub Actions deploys the app to an Oracle Cloud Always Free ARM VM. Docker Compose runs the Node server, PostgreSQL and Caddy on one VM. PostgreSQL data and HTTPS certificates are stored in Docker volumes. Caddy obtains and renews HTTPS certificates for the configured hostname.
 
-1. Push the repository to GitHub.
-2. In Render: **New → Blueprint**, select the repository. Render reads `render.yaml`, creates the database and the web service and injects `DATABASE_URL`.
-3. The start command runs `prisma migrate deploy` (applies SQL in `prisma/migrations`) and then the server. The health check is `GET /api/health`.
-4. After the first deploy, open the service URL on two separate devices and play a match.
+The Oracle Always Free allowance currently covers up to 2 Ampere A1 OCPUs and 12 GB of memory. Availability depends on region capacity; Oracle may reclaim instances it classifies as idle, and free service is not an uptime guarantee. Account verification may require payment-card details. Keep the VM within Oracle's Always Free limits to avoid charges.
 
-A `Dockerfile` is also provided for any container host (runs migrations on boot, listens on `PORT`).
+### One-time setup
+
+1. Create an Oracle Cloud Free Tier account and an Ubuntu 24.04 ARM VM in your home region. Select up to 2 OCPUs and 12 GB RAM, assign a public IPv4 address, and add an SSH public key. If A1 capacity is unavailable, try another availability domain or wait.
+2. In the VM's VCN security list or network security group, allow inbound TCP ports **22**, **80**, **443** and UDP port **443**. Keep SSH access restricted to your IP if practical.
+3. During VM creation, paste [`deploy/oracle-cloud-init.yaml`](deploy/oracle-cloud-init.yaml) into the cloud-init/user-data field. It installs Docker and the Compose plugin.
+4. Choose a hostname that resolves to the VM's public IP. For a no-cost hostname, `PUBLIC_IP.nip.io` works with Caddy's automatic HTTPS; replace `PUBLIC_IP` with the VM address.
+5. Create a dedicated SSH key pair for GitHub Actions, add its public key to the VM, and keep its private key for the repository secret. Verify the VM's SSH host-key fingerprint before saving its `ssh-keyscan -H PUBLIC_IP` output.
+6. In GitHub repository **Settings → Secrets and variables → Actions**, add these repository secrets:
+
+   | Name | Value |
+   | --- | --- |
+   | `ORACLE_HOST` | VM public IP address |
+   | `ORACLE_USER` | `ubuntu` |
+   | `ORACLE_SSH_PRIVATE_KEY` | Private key for the deploy key pair |
+   | `ORACLE_SSH_KNOWN_HOSTS` | Verified `ssh-keyscan -H PUBLIC_IP` output |
+   | `POSTGRES_PASSWORD` | 64 hexadecimal characters; generate with `node -e "console.log(require('node:crypto').randomBytes(32).toString('hex'))"` |
+
+   Add the repository **variable** `APP_HOSTNAME` with the hostname from step 4, for example `203.0.113.10.nip.io`.
+7. In **Actions → Deploy free VM → Run workflow**, run the deployment. Later pushes to `main` deploy automatically. The workflow builds for ARM64, copies the image over SSH, waits for the app and proxy health checks, and probes `https://APP_HOSTNAME/api/health`.
+
+The database is on the VM's persistent block volume and survives container/server restarts, but this setup does not configure off-site backups. Back up the PostgreSQL volume or database regularly. A VM replacement without restoring the volume loses guest profiles and progression.
 
 Manual migration: `DATABASE_URL=... npm run prisma:migrate`.
 
 ## Known limitations
 
-- **Single instance.** Live rooms are in process memory. A restart or redeploy ends running matches; progression is safe in PostgreSQL. Free hosting tiers that sleep when idle will also drop rooms. Horizontal scaling needs the Redis work described above.
+- **Single instance.** The free VM deployment runs one server. Live rooms are in process memory, so a restart/redeploy or reclaimed VM ends running matches; guest profiles and progression persist on the VM's PostgreSQL volume. Oracle may reclaim idle Always Free instances, and capacity is not guaranteed. Horizontal scaling needs the Redis work described above.
 - **Disguised Shapeshifters** are shown to impostors only; Detective clues are deliberately unreliable (80 % true-positive, 15 % false-positive).
 - **Environmental traps** kill anyone who lingers, including impostors; Medic protection only covers impostor eliminations.
 - **Mid-match joining** is refused rather than joining as a spectator.
